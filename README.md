@@ -1,3 +1,4 @@
+![GitHub all releases](https://img.shields.io/github/downloads/ABKAM2023/cs2-blockerpasses/total?style=for-the-badge)
 ## RU
 **BlockerPasses** - позволяет через админ-меню размещать пропы в нужных точках и автоматически создавать их каждый раунд, если игроков меньше значения, заданного в конфигурации.
 
