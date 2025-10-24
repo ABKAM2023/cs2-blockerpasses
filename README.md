@@ -1,3 +1,4 @@
+## RU
 **BlockerPasses** - позволяет через админ-меню размещать пропы в нужных точках и автоматически создавать их каждый раунд, если игроков меньше значения, заданного в конфигурации.
 
 [![Смотреть видео-демонстрацию](https://img.youtube.com/vi/hdmTZiPLX0o/hqdefault.jpg)](https://youtu.be/hdmTZiPLX0o "Смотреть демо")
@@ -37,7 +38,7 @@
 ```
 
 ## EN
-**BlockerPasses** — an admin-menu tool to place blocking props (or any other props) at predefined spots. It can automatically spawn them at the start of each round when the player count is below the threshold set in the config.
+**BlockerPasses** - an admin-menu tool to place blocking props (or any other props) at predefined spots. It can automatically spawn them at the start of each round when the player count is below the threshold set in the config.
 
 [![Watch the demo](https://img.youtube.com/vi/hdmTZiPLX0o/hqdefault.jpg)](https://youtu.be/hdmTZiPLX0o "Watch the demo")
 
