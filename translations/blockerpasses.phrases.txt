@@ -1,0 +1,188 @@
+"Phrases"
+{
+	"Chat_Prefix"
+	{
+		"ru" "{GREEN}[BlockerPasses]{DEFAULT}"
+		"en" "{GREEN}[BlockerPasses]{DEFAULT}"
+	}
+
+	"Chat_NoAccesss"
+	{
+		"ru" "{DEFAULT}Нет доступа к {RED}!bp{DEFAULT}."
+		"en" "{DEFAULT}No access to {RED}!bp{DEFAULT}."
+	}
+
+	"Chat_ClosedMsg"
+	{
+		"ru" "Проход закрыт. Откроется при {RED}%d{DEFAULT} игроках."
+		"en" "Passage is closed. It will open at {RED}%d{DEFAULT} players."
+	}
+
+	"Menu_Title"
+	{
+		"ru" "BlockerPasses"
+		"en" "BlockerPasses"
+	}
+
+	"Menu_Place"
+	{
+		"ru" "Поставить предмет"
+		"en" "Place an item"
+	}
+
+	"Menu_Edit"
+	{
+		"ru" "Редактировать предметы"
+		"en" "Edit items"
+	}
+
+	"Menu_ModelTitle"
+	{
+		"ru" "Выбор модели"
+		"en" "Select model"
+	}
+
+	"Menu_NoModels"
+	{
+		"ru" "Нет моделей"
+		"en" "No models"
+	}
+
+	"Menu_EditPick"
+	{
+		"ru" "Выбери предмет"
+		"en" "Choose an item"
+	}
+
+	"Menu_NoItems"
+	{
+		"ru" "Нет предметов"
+		"en" "No items"
+	}
+
+	"Menu_EditTitle"
+	{
+		"ru" "Редактирование: %s"
+		"en" "Editing: %s"
+	}
+
+    "Menu_YawP15" 
+    { 
+        "ru" "+ Повернуть 15°" 
+        "en" "+ Yaw 15°" 
+    }
+
+    "Menu_YawP5"
+    {
+        "ru" "+ Повернуть 5°"
+        "en" "+ Yaw 5°"
+    }
+
+    "Menu_YawP1"
+    {
+        "ru" "+ Повернуть 1°"
+        "en" "+ Yaw 1°"
+    }
+
+    "Menu_YawM1"
+    {
+        "ru" "- Повернуть 1°"
+        "en" "- Yaw 1°"
+    }
+
+    "Menu_YawM5"
+    {
+        "ru" "- Повернуть 5°"
+        "en" "- Yaw 5°"
+    }
+
+    "Menu_YawM15"
+    {
+        "ru" "- Повернуть 15°"
+        "en" "- Yaw 15°"
+    }
+
+    "Menu_PitchP5"
+    {
+        "ru" "+ Наклонить 5°"
+        "en" "+ Pitch 5°"
+    }
+
+    "Menu_PitchM5"
+    {
+        "ru" "- Наклонить 5°"
+        "en" "- Pitch 5°"
+    }
+
+    "Menu_RollP5"
+    {
+        "ru" "+ Повернуть боком 5°"
+        "en" "+ Roll 5°"
+    }
+
+    "Menu_RollM5"
+    {
+        "ru" "- Повернуть боком 5°"
+        "en" "- Roll 5°"
+    }
+
+    "Menu_ScaleP01"
+    {
+        "ru" "+ Размер 0.10x"
+        "en" "+ Size 0.10x"
+    }
+
+    "Menu_ScaleM01"
+    {
+        "ru" "- Размер 0.10x"
+        "en" "- Size 0.10x"
+    }
+
+    "Menu_ScaleP05"
+    {
+        "ru" "+ Размер 0.50x"
+        "en" "+ Size 0.50x"
+    }
+
+    "Menu_ScaleM05"
+    {
+        "ru" "- Размер 0.50x"
+        "en" "- Size 0.50x"
+    }
+
+    "Menu_ScaleReset"
+    {
+        "ru" "Сбросить размер (1.0x)"
+        "en" "Reset size (1.0x)"
+    }
+
+    "Menu_MoveTrace"
+    {
+        "ru" "Перенести в точку прицела"
+        "en" "Move to crosshair"
+    }
+
+    "Menu_InvisOn"
+    {
+        "ru" "Скрыть"
+        "en" "Hide"
+    }
+
+    "Menu_InvisOff"
+    {
+        "ru" "Показать"
+        "en" "Show"
+    }
+
+    "Menu_Save"
+    {
+        "ru" "Сохранить"
+        "en" "Save"
+    }
+
+    "Menu_Delete"
+    {
+        "ru" "Удалить"
+        "en" "Delete"
+    }
+}
