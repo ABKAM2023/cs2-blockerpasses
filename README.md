@@ -1,11 +1,18 @@
 ## RU
 **BlockerPasses** - позволяет через админ-меню размещать пропы в нужных точках и автоматически создавать их каждый раунд, если игроков меньше значения, заданного в конфигурации.
 
+**Обязательно указать пути моделей в ResourcePrecacher**
+```ini
+  "dust_rollupdoor_96x128_surface_lod"    "models/props/de_dust/hr_dust/dust_windows/dust_rollupdoor_96x128_surface_lod.vmdl"
+  "chainlink_fence_001_256_capped"    "models/props/de_nuke/hr_nuke/chainlink_fence_001/chainlink_fence_001_256_capped.vmdl"
+```
+
 [![Смотреть видео-демонстрацию](https://img.youtube.com/vi/hdmTZiPLX0o/hqdefault.jpg)](https://youtu.be/hdmTZiPLX0o "Смотреть демо")
 
 ## Требования
 - [Utils](https://github.com/Pisex/cs2-menus/releases)
 - [Admin System](https://github.com/Pisex/cs2-admin_system/releases)
+- [ResourcePrecacher](https://github.com/Pisex/ResourcePrecacher)
 
 ## Конфиг
 ```ini
@@ -40,11 +47,18 @@
 ## EN
 **BlockerPasses** - an admin-menu tool to place blocking props (or any other props) at predefined spots. It can automatically spawn them at the start of each round when the player count is below the threshold set in the config.
 
+**Be sure to specify the model paths in ResourcePrecacher**
+```ini
+  "dust_rollupdoor_96x128_surface_lod"    "models/props/de_dust/hr_dust/dust_windows/dust_rollupdoor_96x128_surface_lod.vmdl"
+  "chainlink_fence_001_256_capped"    "models/props/de_nuke/hr_nuke/chainlink_fence_001/chainlink_fence_001_256_capped.vmdl"
+```
+
 [![Watch the demo](https://img.youtube.com/vi/hdmTZiPLX0o/hqdefault.jpg)](https://youtu.be/hdmTZiPLX0o "Watch the demo")
 
 ## Requirements
 - [Utils](https://github.com/Pisex/cs2-menus/releases)
 - [Admin System](https://github.com/Pisex/cs2-admin_system/releases)
+- [ResourcePrecacher](https://github.com/Pisex/ResourcePrecacher)
 
 ## Config
 ```ini
