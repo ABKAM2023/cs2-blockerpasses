@@ -3,8 +3,8 @@
 [![Смотреть видео-демонстрацию](https://img.youtube.com/vi/hdmTZiPLX0o/hqdefault.jpg)](https://youtu.be/hdmTZiPLX0o "Смотреть демо")
 
 ## Требования
-[Utils](https://github.com/Pisex/cs2-menus/releases)
-[Admin System](https://github.com/Pisex/cs2-admin_system/releases)
+- [Utils](https://github.com/Pisex/cs2-menus/releases)
+- [Admin System](https://github.com/Pisex/cs2-admin_system/releases)
 
 ## Конфиг
 ```ini
@@ -42,8 +42,8 @@
 [![Watch the demo](https://img.youtube.com/vi/hdmTZiPLX0o/hqdefault.jpg)](https://youtu.be/hdmTZiPLX0o "Watch the demo")
 
 ## Requirements
-[Utils](https://github.com/Pisex/cs2-menus/releases)
-[Admin System](https://github.com/Pisex/cs2-admin_system/releases)
+- [Utils](https://github.com/Pisex/cs2-menus/releases)
+- [Admin System](https://github.com/Pisex/cs2-admin_system/releases)
 
 ## Config
 ```ini
