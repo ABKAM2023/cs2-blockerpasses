@@ -26,7 +26,7 @@ IAdminApi* g_pAdmin = nullptr;
 
 struct ModelDef { std::string label; std::string path; };
 struct BPItem { std::string label; std::string path; Vector pos; QAngle ang; float scale = 1.0f; bool invisible = false; };
-struct LiveEnt { int index; CBaseEntity* ent; };
+struct LiveEnt { int index; CHandle<CBaseEntity> ent; };
 
 static std::vector<ModelDef> g_ModelDefs;
 static std::vector<BPItem>   g_Items;
@@ -150,7 +150,7 @@ static void Dbg(const char* fmt, ...)
 static void ClearLive(bool removeEntities)
 {
     if (removeEntities)
-        for (auto& le : g_Live) if (le.ent) g_pUtils->RemoveEntity((CEntityInstance*)le.ent);
+        for (auto& le : g_Live) if (le.ent.Get()) g_pUtils->RemoveEntity((CEntityInstance*)le.ent.Get());
     g_Live.clear();
 }
 
@@ -219,12 +219,12 @@ static CBaseEntity* SpawnOne(const BPItem& it)
 static void EnsureClosed()
 {
     std::vector<int> aliveIdx;
-    for (auto& le : g_Live) if (le.ent) aliveIdx.push_back(le.index);
+    for (auto& le : g_Live) if (le.ent.Get()) aliveIdx.push_back(le.index);
 
     for (int i = 0; i < (int)g_Items.size(); ++i)
     {
         if (std::find(aliveIdx.begin(), aliveIdx.end(), i) != aliveIdx.end()) continue;
-        if (CBaseEntity* e = SpawnOne(g_Items[i])) g_Live.push_back({i, e});
+        if (CBaseEntity* e = SpawnOne(g_Items[i])) g_Live.push_back({i, CHandle<CBaseEntity>(e)});
         else Dbg("EnsureClosed: spawn failed for %d", i);
     }
 }
@@ -456,7 +456,7 @@ void StartupServer()
 static inline void TeleportLive(int index)
 {
     for (auto& le : g_Live)
-        if (le.index == index && le.ent) { g_pUtils->TeleportEntity((CBaseEntity*)le.ent, &g_Items[index].pos, &g_Items[index].ang, nullptr); return; }
+        if (le.index == index && le.ent.Get()) { g_pUtils->TeleportEntity((CBaseEntity*)le.ent.Get(), &g_Items[index].pos, &g_Items[index].ang, nullptr); return; }
 }
 
 static inline void MakeLiveIfMissing(int index)
@@ -464,7 +464,7 @@ static inline void MakeLiveIfMissing(int index)
     for (auto& le : g_Live) if (le.index == index) return;
     if (!ShouldBeOpen())
     {
-        if (CBaseEntity* e = SpawnOne(g_Items[index])) g_Live.push_back({index, e});
+        if (CBaseEntity* e = SpawnOne(g_Items[index])) g_Live.push_back({index, CHandle<CBaseEntity>(e)});
         else Dbg("MakeLiveIfMissing: failed for %d", index);
     }
 }
@@ -475,7 +475,7 @@ static void RespawnLive(int index)
     {
         if (it->index == index)
         {
-            if (it->ent) g_pUtils->RemoveEntity((CEntityInstance*)it->ent);
+            if (it->ent.Get()) g_pUtils->RemoveEntity((CEntityInstance*)it->ent.Get());
             g_Live.erase(it);
             break;
         }
@@ -483,7 +483,7 @@ static void RespawnLive(int index)
 
     if (!ShouldBeOpen())
     {
-        if (CBaseEntity* e = SpawnOne(g_Items[index])) g_Live.push_back({index, e});
+        if (CBaseEntity* e = SpawnOne(g_Items[index])) g_Live.push_back({index, CHandle<CBaseEntity>(e)});
         else Dbg("RespawnLive: spawn failed for %d", index);
     }
 }
@@ -492,18 +492,18 @@ static inline void ApplyVisualScaleToLive(int index)
 {
     for (auto& le : g_Live)
     {
-        if (le.index != index || !le.ent) continue;
+        if (le.index != index || !le.ent.Get()) continue;
 
         float s = ClampScale(g_Items[index].scale);
 
-        auto* body = le.ent->m_CBodyComponent();
+        auto* body = le.ent.Get()->m_CBodyComponent();
         if (body)
         {
             auto* node = body->m_pSceneNode();
             if (node)
             {
                 node->m_flScale() = s;
-                g_pUtils->SetStateChanged(le.ent, "CBaseEntity", "m_CBodyComponent");
+                g_pUtils->SetStateChanged(le.ent.Get(), "CBaseEntity", "m_CBodyComponent");
                 Dbg("ApplyVisualScaleToLive: idx=%d sceneNode scale=%.3f", index, s);
                 return;
             }
@@ -518,11 +518,11 @@ static inline void ApplyInvisibilityToLive(int index)
 {
     for (auto& le : g_Live)
     {
-        if (le.index != index || !le.ent) continue;
+        if (le.index != index || !le.ent.Get()) continue;
         bool inv = g_Items[index].invisible;
-        auto* me = dynamic_cast<CBaseModelEntity*>(le.ent);
+        auto* me = dynamic_cast<CBaseModelEntity*>(le.ent.Get());
         ApplyRenderAlpha(me, inv ? 0 : 255);
-        SetNoDraw(le.ent, inv);
+        SetNoDraw(le.ent.Get(), inv);
         Dbg("ApplyInvisibilityToLive: idx=%d invisible=%d", index, (int)inv);
         return;
     }
@@ -678,7 +678,7 @@ static void OpenRotateMenu(int slot, int index)
             {
                 if (it->index == index)
                 {
-                    if (it->ent) g_pUtils->RemoveEntity((CEntityInstance*)it->ent);
+                    if (it->ent.Get()) g_pUtils->RemoveEntity((CEntityInstance*)it->ent.Get());
                     it = g_Live.erase(it);
                 }
                 else ++it;
@@ -850,7 +850,7 @@ const char* BlockerPasses::GetLicense()
 
 const char* BlockerPasses::GetVersion()
 {
-    return "1.0";
+    return "1.0.2";
 }
 
 const char* BlockerPasses::GetDate()
