@@ -945,9 +945,32 @@ static int FindItemByCrosshair(int slot, float maxDist = 128.0f)
 
 static void EnsureCorrectMapLoaded()
 {
-    if (g_CurrentMap.empty())
+    CGlobalVars* gv = g_pUtils->GetCGlobalVars();
+    if (!gv)
     {
-        Dbg("EnsureCorrectMapLoaded: g_CurrentMap is empty, waiting for OnMapStart");
+        return;
+    }
+    const char* raw = gv->mapname.ToCStr();
+    if (!raw || !*raw)
+    {
+        return;
+    }
+    std::string realMap = NormalizeMapName(raw);
+    if (realMap.empty())
+    {
+        return;
+    }
+    if (g_CurrentMap != realMap)
+    {
+        Dbg("EnsureCorrectMapLoaded: Map changed: '%s' -> '%s'", g_CurrentMap.c_str(), realMap.c_str());
+        g_TempAccessSteamIDs.clear();
+        LoadSettings();
+        LoadPhrases();
+        LoadDataForMap(realMap.c_str());
+    }
+    else
+    {
+        Dbg("EnsureCorrectMapLoaded: map='%s' (no change)", g_CurrentMap.c_str());
     }
 }
 
@@ -993,7 +1016,19 @@ static void OnMapStart(const char* map)
     g_TempAccessSteamIDs.clear();
     LoadSettings();
     LoadPhrases();
-    LoadDataForMap(map);
+
+    const char* realMap = nullptr;
+    CGlobalVars* gv = g_pUtils->GetCGlobalVars();
+    if (gv)
+    {
+        realMap = gv->mapname.ToCStr();
+    }
+    if (!realMap || !*realMap)
+    {
+        realMap = map;
+    }
+    Dbg("OnMapStart: raw='%s' globals='%s'", map ? map : "(null)", realMap ? realMap : "(null)");
+    LoadDataForMap(realMap);
 }
 
 static void OnMapEnd()
