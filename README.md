@@ -63,7 +63,7 @@
   "dust_soccer_ball001"   "models/props/de_dust/hr_dust/dust_soccerball/dust_soccer_ball001.vmdl"
 ```
 
-[![Watch the demo](https://img.youtube.com/vi/hdmTZiPLX0o/hqdefault.jpg)](https://youtu.be/hdmTZiPLX0o "Watch the demo")
+[![Смотреть видео-демонстрацию](https://img.youtube.com/vi/01Bz4f9rvIY/hqdefault.jpg)](https://www.youtube.com/watch?v=01Bz4f9rvIY "Watch the demo")
 
 ## Requirements
 - [Utils](https://github.com/Pisex/cs2-menus/releases)
