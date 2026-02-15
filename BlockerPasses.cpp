@@ -7,6 +7,7 @@
 #include <cstring>
 #include <cctype>
 #include <cstdlib>
+#include <cmath>
 #include <set>
 #include "BlockerPasses.h"
 #include "metamod_oslink.h"
@@ -50,6 +51,7 @@ struct BPItem
     int beamG = 128;
     int beamB = 255;
     bool beamRainbow = false;
+    float wallYaw = 0.0f;
     int itemR = 255;
     int itemG = 255;
     int itemB = 255;
@@ -60,6 +62,7 @@ struct LiveEnt
     int index;
     CHandle<CBaseEntity> ent;
     std::vector<CHandle<CBaseEntity>> beams;
+    std::vector<CHandle<CBaseEntity>> wallColls;
 };
 
 static std::vector<ModelDef> g_ModelDefs;
@@ -247,13 +250,27 @@ static void Dbg(const char* fmt, ...)
     ConColorMsg(Color(150, 200, 255, 255), "[BlockerPasses] %s\n", buf);
 }
 
+static void KillWallCollision(CBaseEntity* ent);
+
 static void ClearLive(bool removeEntities)
 {
     if (removeEntities)
     {
         for (auto& le : g_Live)
         {
-            if (le.ent.Get())
+            bool isWall = (le.index >= 0 && le.index < (int)g_Items.size() && g_Items[le.index].isWall);
+            if (isWall)
+            {
+                for (auto& wc : le.wallColls)
+                {
+                    if (wc.Get())
+                    {
+                        KillWallCollision(wc.Get());
+                    }
+                }
+                le.wallColls.clear();
+            }
+            else if (le.ent.Get())
             {
                 g_pUtils->RemoveEntity((CEntityInstance*)le.ent.Get());
             }
@@ -280,6 +297,41 @@ static inline void RemoveLiveBeams(LiveEnt& le)
         }
     }
     le.beams.clear();
+}
+
+static void KillWallCollision(CBaseEntity* ent)
+{
+    if (!ent)
+    {
+        return;
+    }
+    auto* me = dynamic_cast<CBaseModelEntity*>(ent);
+    if (me)
+    {
+        me->m_Collision().m_nSolidType() = SOLID_NONE;
+        g_pUtils->SetStateChanged(me, "CCollisionProperty", "m_nSolidType");
+
+        Vector zero(0, 0, 0);
+        me->m_Collision().m_vecMins() = zero;
+        g_pUtils->SetStateChanged(me, "CCollisionProperty", "m_vecMins");
+        me->m_Collision().m_vecMaxs() = zero;
+        g_pUtils->SetStateChanged(me, "CCollisionProperty", "m_vecMaxs");
+        me->m_Collision().m_vecSpecifiedSurroundingMins() = zero;
+        g_pUtils->SetStateChanged(me, "CCollisionProperty", "m_vecSpecifiedSurroundingMins");
+        me->m_Collision().m_vecSpecifiedSurroundingMaxs() = zero;
+        g_pUtils->SetStateChanged(me, "CCollisionProperty", "m_vecSpecifiedSurroundingMaxs");
+
+        if (g_fnSetCollisionBounds)
+        {
+            g_fnSetCollisionBounds(ent, &zero, &zero);
+        }
+    }
+
+    Vector voidPos(0, 0, -15000);
+    QAngle noAng(0, 0, 0);
+    g_pUtils->TeleportEntity(ent, &voidPos, &noAng, nullptr);
+
+    g_pUtils->RemoveEntity((CEntityInstance*)ent);
 }
 
 static inline float ClampScale(float v)
@@ -389,7 +441,7 @@ static CBaseEntity* CreateBeamLine(const Vector& start, const Vector& end, int c
     return ent;
 }
 
-static std::vector<CHandle<CBaseEntity>> DrawWireframe(const Vector& p1, const Vector& p2, int bR, int bG, int bB, bool rainbow, float width = 1.0f)
+static std::vector<CHandle<CBaseEntity>> DrawWireframe(const Vector& p1, const Vector& p2, int bR, int bG, int bB, bool rainbow, float yaw = 0.0f, float width = 1.0f)
 {
     float minX = fminf(p1.x, p2.x), maxX = fmaxf(p1.x, p2.x);
     float minY = fminf(p1.y, p2.y), maxY = fmaxf(p1.y, p2.y);
@@ -399,6 +451,22 @@ static std::vector<CHandle<CBaseEntity>> DrawWireframe(const Vector& p1, const V
         {minX, minY, minZ}, {maxX, minY, minZ}, {maxX, maxY, minZ}, {minX, maxY, minZ},
         {minX, minY, maxZ}, {maxX, minY, maxZ}, {maxX, maxY, maxZ}, {minX, maxY, maxZ}
     };
+
+    if (yaw != 0.0f)
+    {
+        float cx = (minX + maxX) * 0.5f;
+        float cy = (minY + maxY) * 0.5f;
+        float rad = yaw * (float)M_PI / 180.0f;
+        float cosA = cosf(rad);
+        float sinA = sinf(rad);
+        for (int i = 0; i < 8; ++i)
+        {
+            float dx = c[i].x - cx;
+            float dy = c[i].y - cy;
+            c[i].x = cx + dx * cosA - dy * sinA;
+            c[i].y = cy + dx * sinA + dy * cosA;
+        }
+    }
 
     int edges[][2] = {
         {0, 1}, {1, 2}, {2, 3}, {3, 0},
@@ -512,37 +580,12 @@ static void StartRainbowTimer()
     });
 }
 
-static CBaseEntity* SpawnWallCollision(const Vector& p1, const Vector& p2)
+static CBaseEntity* SpawnOneCollisionBox(const Vector& boxCenter, const Vector& vmins, const Vector& vmaxs, float yaw = 0.0f)
 {
-    if (!g_fnSetCollisionBounds)
-    {
-        Dbg("SpawnWallCollision: SetCollisionBounds not found, walls won't block");
-        return nullptr;
-    }
-
-    Vector center, vmins, vmaxs;
-    for (int a = 0; a < 3; ++a)
-    {
-        float lo = fminf(p1[a], p2[a]);
-        float hi = fmaxf(p1[a], p2[a]);
-        center[a] = (lo + hi) * 0.5f;
-        vmaxs[a] = hi - center[a];
-        vmins[a] = -vmaxs[a];
-    }
-
-    for (int a = 0; a < 3; ++a)
-    {
-        if (vmaxs[a] - vmins[a] < 2.0f)
-        {
-            vmins[a] = -1.0f;
-            vmaxs[a] = 1.0f;
-        }
-    }
-
     CBaseEntity* ent = (CBaseEntity*)g_pUtils->CreateEntityByName("func_brush", CEntityIndex(-1));
     if (!ent)
     {
-        Dbg("SpawnWallCollision: CreateEntityByName func_brush failed");
+        Dbg("SpawnOneCollisionBox: CreateEntityByName func_brush failed");
         return nullptr;
     }
 
@@ -553,20 +596,27 @@ static CBaseEntity* SpawnWallCollision(const Vector& p1, const Vector& p2)
         g_pUtils->SetStateChanged(me, "CBaseModelEntity", "m_nRenderMode");
     }
 
-    QAngle noAng(0, 0, 0);
-    g_pUtils->TeleportEntity(ent, &center, &noAng, nullptr);
+    QAngle ang(0, yaw, 0);
+    g_pUtils->TeleportEntity(ent, &boxCenter, &ang, nullptr);
 
     g_pUtils->DispatchSpawn((CEntityInstance*)ent, nullptr);
+
+    float cosAbs = fabsf(cosf(yaw * (float)M_PI / 180.0f));
+    float sinAbs = fabsf(sinf(yaw * (float)M_PI / 180.0f));
+    float surroundHX = fabsf(vmaxs.x) * cosAbs + fabsf(vmaxs.y) * sinAbs;
+    float surroundHY = fabsf(vmaxs.x) * sinAbs + fabsf(vmaxs.y) * cosAbs;
+    Vector surroundMins(-surroundHX, -surroundHY, vmins.z);
+    Vector surroundMaxs(surroundHX, surroundHY, vmaxs.z);
 
     if (me)
     {
         me->m_Collision().m_nSurroundType() = 3;
         g_pUtils->SetStateChanged(me, "CCollisionProperty", "m_nSurroundType");
 
-        me->m_Collision().m_vecSpecifiedSurroundingMaxs() = vmins;
+        me->m_Collision().m_vecSpecifiedSurroundingMaxs() = surroundMaxs;
         g_pUtils->SetStateChanged(me, "CCollisionProperty", "m_vecSpecifiedSurroundingMaxs");
 
-        me->m_Collision().m_vecSpecifiedSurroundingMins() = vmaxs;
+        me->m_Collision().m_vecSpecifiedSurroundingMins() = surroundMins;
         g_pUtils->SetStateChanged(me, "CCollisionProperty", "m_vecSpecifiedSurroundingMins");
 
         me->m_Collision().m_vecMins() = vmins;
@@ -581,7 +631,7 @@ static CBaseEntity* SpawnWallCollision(const Vector& p1, const Vector& p2)
         me->m_Collision().m_CollisionGroup() = 0;
         g_pUtils->SetStateChanged(me, "CCollisionProperty", "m_CollisionGroup");
 
-        me->m_Collision().m_nSolidType() = SOLID_BBOX;
+        me->m_Collision().m_nSolidType() = SOLID_OBB;
         g_pUtils->SetStateChanged(me, "CCollisionProperty", "m_nSolidType");
     }
 
@@ -609,14 +659,80 @@ static CBaseEntity* SpawnWallCollision(const Vector& p1, const Vector& p2)
         Vector maxs = capturedMaxs;
         g_fnSetCollisionBounds(e, &mins, &maxs);
 
-        Dbg("SpawnWallCollision: deferred SetCollisionBounds applied");
+        Dbg("SpawnOneCollisionBox: deferred SetCollisionBounds applied (OBB)");
         return -1.0f;
     });
 
-    Dbg("SpawnWallCollision: func_brush at (%.1f %.1f %.1f) mins(%.1f %.1f %.1f) maxs(%.1f %.1f %.1f)",
-        center.x, center.y, center.z, vmins.x, vmins.y, vmins.z, vmaxs.x, vmaxs.y, vmaxs.z);
-
     return ent;
+}
+
+static std::vector<CBaseEntity*> SpawnWallCollisions(const Vector& p1, const Vector& p2, float yaw = 0.0f)
+{
+    std::vector<CBaseEntity*> result;
+
+    if (!g_fnSetCollisionBounds)
+    {
+        Dbg("SpawnWallCollisions: SetCollisionBounds not found");
+        return result;
+    }
+
+    Vector center;
+    float halfExt[3];
+    for (int a = 0; a < 3; ++a)
+    {
+        float lo = fminf(p1[a], p2[a]);
+        float hi = fmaxf(p1[a], p2[a]);
+        center[a] = (lo + hi) * 0.5f;
+        halfExt[a] = fmaxf((hi - lo) * 0.5f, 1.0f);
+    }
+
+    float normalYaw = fmodf(yaw, 360.0f);
+    if (normalYaw < 0.0f)
+    {
+        normalYaw += 360.0f;
+    }
+
+    bool isAxisAligned = (normalYaw < 1.0f || fabsf(normalYaw - 90.0f) < 1.0f ||
+                          fabsf(normalYaw - 180.0f) < 1.0f || fabsf(normalYaw - 270.0f) < 1.0f ||
+                          normalYaw > 359.0f);
+
+    if (isAxisAligned)
+    {
+        float hx = halfExt[0], hy = halfExt[1];
+        if (fabsf(normalYaw - 90.0f) < 1.0f || fabsf(normalYaw - 270.0f) < 1.0f)
+        {
+            float tmp = hx;
+            hx = hy;
+            hy = tmp;
+        }
+        Vector vmins(-hx, -hy, -halfExt[2]);
+        Vector vmaxs(hx, hy, halfExt[2]);
+        CBaseEntity* ent = SpawnOneCollisionBox(center, vmins, vmaxs);
+        if (ent)
+        {
+            result.push_back(ent);
+        }
+        Dbg("SpawnWallCollisions: axis-aligned yaw=%.1f box at (%.1f %.1f %.1f)", yaw, center.x, center.y, center.z);
+    }
+    else
+    {
+        float halfX = halfExt[0];
+        float halfY = halfExt[1];
+        float halfZ = halfExt[2];
+
+        Vector vmins(-halfX, -halfY, -halfZ);
+        Vector vmaxs(halfX, halfY, halfZ);
+        CBaseEntity* ent = SpawnOneCollisionBox(center, vmins, vmaxs, yaw);
+        if (ent)
+        {
+            result.push_back(ent);
+        }
+
+        Dbg("SpawnWallCollisions: OBB yaw=%.1f center(%.1f %.1f %.1f) half(%.1f %.1f %.1f)",
+            yaw, center.x, center.y, center.z, halfX, halfY, halfZ);
+    }
+
+    return result;
 }
 
 static void SpawnLiveEntry(int index, LiveEnt& le)
@@ -624,9 +740,16 @@ static void SpawnLiveEntry(int index, LiveEnt& le)
     const BPItem& it = g_Items[index];
     if (it.isWall)
     {
-        CBaseEntity* wallEnt = SpawnWallCollision(it.pos, it.pos2);
-        le.ent = CHandle<CBaseEntity>(wallEnt);
-        le.beams = DrawWireframe(it.pos, it.pos2, it.beamR, it.beamG, it.beamB, it.beamRainbow);
+        auto wallEnts = SpawnWallCollisions(it.pos, it.pos2, it.wallYaw);
+        for (auto* e : wallEnts)
+        {
+            le.wallColls.push_back(CHandle<CBaseEntity>(e));
+        }
+        if (!wallEnts.empty())
+        {
+            le.ent = CHandle<CBaseEntity>(wallEnts[0]);
+        }
+        le.beams = DrawWireframe(it.pos, it.pos2, it.beamR, it.beamG, it.beamB, it.beamRainbow, it.wallYaw);
         if (it.beamRainbow)
         {
             StartRainbowTimer();
@@ -784,6 +907,10 @@ static void SaveData()
             k->SetInt("bg", it.beamG);
             k->SetInt("bb", it.beamB);
             k->SetInt("brb", it.beamRainbow ? 1 : 0);
+            if (it.wallYaw != 0.0f)
+            {
+                k->SetFloat("wy", it.wallYaw);
+            }
         }
         if (!it.isWall)
         {
@@ -842,6 +969,7 @@ static void LoadDataForMap(const char* map)
             it.beamG = k->GetInt("bg", 128);
             it.beamB = k->GetInt("bb", 255);
             it.beamRainbow = k->GetInt("brb", 0) != 0;
+            it.wallYaw = k->GetFloat("wy", 0.0f);
         }
         if (!it.isWall)
         {
@@ -915,6 +1043,9 @@ static void OpenMoveMenu(int slot, int index);
 static void OpenRotateSubMenu(int slot, int index);
 static void OpenScaleMenu(int slot, int index);
 static void OpenBeamColorMenu(int slot, int index);
+static void OpenWallRotateMenu(int slot, int index);
+static void OpenWallMoveMenu(int slot, int index);
+static void OpenWallScaleMenu(int slot, int index);
 static void OpenItemColorMenu(int slot, int index);
 
 static int FindItemByCrosshair(int slot, float maxDist = 128.0f)
@@ -1038,6 +1169,7 @@ static void OnMapEnd()
 
 static inline void TeleportLive(int index);
 static inline void MakeLiveIfMissing(int index);
+static void RespawnWallLive(int index);
 
 static void OnPlayerPingEvent(const char*, IGameEvent* pEvent, bool)
 {
@@ -1066,9 +1198,20 @@ static void OnPlayerPingEvent(const char*, IGameEvent* pEvent, bool)
             return;
         }
 
-        g_Items[iIndex].pos = pingPos;
-        TeleportLive(iIndex);
-        MakeLiveIfMissing(iIndex);
+        if (g_Items[iIndex].isWall)
+        {
+            Vector center = (g_Items[iIndex].pos + g_Items[iIndex].pos2) * 0.5f;
+            Vector offset = pingPos - center;
+            g_Items[iIndex].pos += offset;
+            g_Items[iIndex].pos2 += offset;
+            RespawnWallLive(iIndex);
+        }
+        else
+        {
+            g_Items[iIndex].pos = pingPos;
+            TeleportLive(iIndex);
+            MakeLiveIfMissing(iIndex);
+        }
         SaveData();
         g_ePingMode[iSlot] = PING_NONE;
         OpenItemMenu(iSlot, iIndex);
@@ -1113,7 +1256,7 @@ static void OnPlayerPingEvent(const char*, IGameEvent* pEvent, bool)
 
 static void OnRoundStartEvent(const char*, IGameEvent*, bool)
 {
-    ClearLive(false);
+    ClearLive(true);
     EnsureCorrectMapLoaded();
     for (int i = 0; i < 64; ++i)
     {
@@ -1193,11 +1336,23 @@ static inline void MakeLiveIfMissing(int index)
 
 static void RespawnLive(int index)
 {
+    bool isWall = (index >= 0 && index < (int)g_Items.size() && g_Items[index].isWall);
     for (auto it = g_Live.begin(); it != g_Live.end(); ++it)
     {
         if (it->index == index)
         {
-            if (it->ent.Get())
+            if (isWall)
+            {
+                for (auto& wc : it->wallColls)
+                {
+                    if (wc.Get())
+                    {
+                        KillWallCollision(wc.Get());
+                    }
+                }
+                it->wallColls.clear();
+            }
+            else if (it->ent.Get())
             {
                 g_pUtils->RemoveEntity((CEntityInstance*)it->ent.Get());
             }
@@ -1443,6 +1598,177 @@ static void OpenEditListMenu(int slot)
     g_pMenus->DisplayPlayerMenu(m, slot, true, true);
 }
 
+static void OpenWallMoveMenu(int slot, int index)
+{
+    if (!g_pMenus || index < 0 || index >= (int)g_Items.size())
+    {
+        return;
+    }
+    Menu m;
+    m.clear();
+    g_pMenus->SetTitleMenu(m, Phrase("Menu_MoveTitle", "Движение"));
+    g_pMenus->AddItemMenu(m, "x;10", "По оси X +10", ITEM_DEFAULT);
+    g_pMenus->AddItemMenu(m, "x;-10", "По оси X -10", ITEM_DEFAULT);
+    g_pMenus->AddItemMenu(m, "y;10", "По оси Y +10", ITEM_DEFAULT);
+    g_pMenus->AddItemMenu(m, "y;-10", "По оси Y -10", ITEM_DEFAULT);
+    g_pMenus->AddItemMenu(m, "z;10", "По оси Z +10", ITEM_DEFAULT);
+    g_pMenus->AddItemMenu(m, "z;-10", "По оси Z -10", ITEM_DEFAULT);
+    g_pMenus->SetBackMenu(m, true);
+    g_pMenus->SetExitMenu(m, true);
+    g_pMenus->SetCallback(m, [index](const char* back, const char*, int, int iSlot) {
+        if (!strcmp(back, "back"))
+        {
+            OpenItemMenu(iSlot, index);
+            return;
+        }
+        if (index < 0 || index >= (int)g_Items.size())
+        {
+            return;
+        }
+        float dx = 0, dy = 0, dz = 0;
+        if (!strcmp(back, "x;10")) dx = 10;
+        else if (!strcmp(back, "x;-10")) dx = -10;
+        else if (!strcmp(back, "y;10")) dy = 10;
+        else if (!strcmp(back, "y;-10")) dy = -10;
+        else if (!strcmp(back, "z;10")) dz = 10;
+        else if (!strcmp(back, "z;-10")) dz = -10;
+        else return;
+
+        g_Items[index].pos.x += dx;
+        g_Items[index].pos.y += dy;
+        g_Items[index].pos.z += dz;
+        g_Items[index].pos2.x += dx;
+        g_Items[index].pos2.y += dy;
+        g_Items[index].pos2.z += dz;
+
+        RespawnWallLive(index);
+        SaveData();
+    });
+    g_pMenus->DisplayPlayerMenu(m, slot, true, true);
+}
+
+static void OpenWallScaleMenu(int slot, int index)
+{
+    if (!g_pMenus || index < 0 || index >= (int)g_Items.size())
+    {
+        return;
+    }
+    Menu m;
+    m.clear();
+
+    Vector diff = g_Items[index].pos2 - g_Items[index].pos;
+    float sizeX = fabsf(diff.x);
+    float sizeY = fabsf(diff.y);
+    float sizeZ = fabsf(diff.z);
+
+    char title[128];
+    V_snprintf(title, sizeof(title), "%s {%.0fx%.0fx%.0f}", Phrase("Menu_WallScaleTitle", "Размер стены"), sizeX, sizeY, sizeZ);
+    g_pMenus->SetTitleMenu(m, title);
+
+    g_pMenus->AddItemMenu(m, "s;10", "Увеличить +10", ITEM_DEFAULT);
+    g_pMenus->AddItemMenu(m, "s;-10", "Уменьшить -10", ITEM_DEFAULT);
+    g_pMenus->AddItemMenu(m, "s;50", "Увеличить +50", ITEM_DEFAULT);
+    g_pMenus->AddItemMenu(m, "s;-50", "Уменьшить -50", ITEM_DEFAULT);
+    g_pMenus->AddItemMenu(m, "s;100", "Увеличить +100", ITEM_DEFAULT);
+    g_pMenus->AddItemMenu(m, "s;-100", "Уменьшить -100", ITEM_DEFAULT);
+    g_pMenus->SetBackMenu(m, true);
+    g_pMenus->SetExitMenu(m, true);
+    g_pMenus->SetCallback(m, [index](const char* back, const char*, int, int iSlot) {
+        if (!strcmp(back, "back"))
+        {
+            OpenItemMenu(iSlot, index);
+            return;
+        }
+        if (index < 0 || index >= (int)g_Items.size())
+        {
+            return;
+        }
+        float delta = 0.0f;
+        if (sscanf(back, "s;%f", &delta) != 1)
+        {
+            return;
+        }
+
+        Vector center = (g_Items[index].pos + g_Items[index].pos2) * 0.5f;
+        Vector half = (g_Items[index].pos2 - g_Items[index].pos) * 0.5f;
+
+        for (int a = 0; a < 3; ++a)
+        {
+            if (half[a] > 0)
+            {
+                half[a] = fmaxf(half[a] + delta * 0.5f, 1.0f);
+            }
+            else if (half[a] < 0)
+            {
+                half[a] = fminf(half[a] - delta * 0.5f, -1.0f);
+            }
+            else
+            {
+                half[a] = delta * 0.5f;
+            }
+        }
+
+        g_Items[index].pos = center - half;
+        g_Items[index].pos2 = center + half;
+
+        RespawnWallLive(index);
+        SaveData();
+        OpenWallScaleMenu(iSlot, index);
+    });
+    g_pMenus->DisplayPlayerMenu(m, slot, true, true);
+}
+
+static void OpenWallRotateMenu(int slot, int index)
+{
+    if (!g_pMenus || index < 0 || index >= (int)g_Items.size())
+    {
+        return;
+    }
+    Menu m;
+    m.clear();
+
+    char title[128];
+    V_snprintf(title, sizeof(title), "%s {%.0f°}", Phrase("Menu_WallRotateTitle", "Поворот стены"), g_Items[index].wallYaw);
+    g_pMenus->SetTitleMenu(m, title);
+
+    g_pMenus->AddItemMenu(m, "r;45", "+45°", ITEM_DEFAULT);
+    g_pMenus->AddItemMenu(m, "r;-45", "-45°", ITEM_DEFAULT);
+    g_pMenus->AddItemMenu(m, "r;15", "+15°", ITEM_DEFAULT);
+    g_pMenus->AddItemMenu(m, "r;-15", "-15°", ITEM_DEFAULT);
+    g_pMenus->AddItemMenu(m, "r;5", "+5°", ITEM_DEFAULT);
+    g_pMenus->AddItemMenu(m, "r;-5", "-5°", ITEM_DEFAULT);
+    g_pMenus->SetBackMenu(m, true);
+    g_pMenus->SetExitMenu(m, true);
+    g_pMenus->SetCallback(m, [index](const char* back, const char*, int, int iSlot) {
+        if (!strcmp(back, "back"))
+        {
+            OpenItemMenu(iSlot, index);
+            return;
+        }
+        if (index < 0 || index >= (int)g_Items.size())
+        {
+            return;
+        }
+        float delta = 0.0f;
+        if (sscanf(back, "r;%f", &delta) == 1)
+        {
+            g_Items[index].wallYaw += delta;
+            if (g_Items[index].wallYaw >= 360.0f)
+            {
+                g_Items[index].wallYaw -= 360.0f;
+            }
+            if (g_Items[index].wallYaw < 0.0f)
+            {
+                g_Items[index].wallYaw += 360.0f;
+            }
+            RespawnWallLive(index);
+            SaveData();
+            OpenWallRotateMenu(iSlot, index);
+        }
+    });
+    g_pMenus->DisplayPlayerMenu(m, slot, true, true);
+}
+
 static void OpenItemMenu(int slot, int index)
 {
     if (!g_pMenus || index < 0 || index >= (int)g_Items.size())
@@ -1458,6 +1784,16 @@ static void OpenItemMenu(int slot, int index)
     V_snprintf(title, sizeof(title), "%s%s", g_Items[index].label.c_str(), isWall ? " [wall]" : "");
     g_pMenus->SetTitleMenu(m, title);
 
+    if (isWall)
+    {
+        g_pMenus->AddItemMenu(m, "wallmove", Phrase("Menu_Move", "Двигать"), ITEM_DEFAULT);
+        g_pMenus->AddItemMenu(m, "wallscale", Phrase("Menu_WallScale", "Размер стены"), ITEM_DEFAULT);
+        g_pMenus->AddItemMenu(m, "wallrotate", Phrase("Menu_WallRotate", "Поворот стены"), ITEM_DEFAULT);
+        g_pMenus->AddItemMenu(m, "beamcolor", Phrase("Menu_BeamColor", "Цвет лазера"), ITEM_DEFAULT);
+        g_pMenus->AddItemMenu(m, "wall:trace", Phrase("Menu_MoveTrace", "Перенести в точку прицела"), ITEM_DEFAULT);
+        g_pMenus->AddItemMenu(m, "wallping", Phrase("Menu_PingMove", "Телепортировать пингом"), ITEM_DEFAULT);
+    }
+
     if (!isWall)
     {
         g_pMenus->AddItemMenu(m, "move", Phrase("Menu_Move", "Двигать"), ITEM_DEFAULT);
@@ -1466,11 +1802,6 @@ static void OpenItemMenu(int slot, int index)
     }
 
     g_pMenus->AddItemMenu(m, "teleport", Phrase("Menu_Teleport", "Телепортироваться"), ITEM_DEFAULT);
-
-    if (isWall)
-    {
-        g_pMenus->AddItemMenu(m, "beamcolor", Phrase("Menu_BeamColor", "Цвет лазера"), ITEM_DEFAULT);
-    }
 
     if (!isWall)
     {
@@ -1515,9 +1846,44 @@ static void OpenItemMenu(int slot, int index)
             OpenScaleMenu(iSlot, index);
             return;
         }
+        if (!strcmp(back, "wallmove"))
+        {
+            OpenWallMoveMenu(iSlot, index);
+            return;
+        }
+        if (!strcmp(back, "wallscale"))
+        {
+            OpenWallScaleMenu(iSlot, index);
+            return;
+        }
         if (!strcmp(back, "beamcolor"))
         {
             OpenBeamColorMenu(iSlot, index);
+            return;
+        }
+        if (!strcmp(back, "wallrotate"))
+        {
+            OpenWallRotateMenu(iSlot, index);
+            return;
+        }
+        if (!strcmp(back, "wall:trace"))
+        {
+            trace_info_t tr = g_pPlayers->RayTrace(iSlot);
+            Vector center = (g_Items[index].pos + g_Items[index].pos2) * 0.5f;
+            Vector offset = tr.m_vEndPos - center;
+            g_Items[index].pos += offset;
+            g_Items[index].pos2 += offset;
+            RespawnWallLive(index);
+            SaveData();
+            OpenItemMenu(iSlot, index);
+            return;
+        }
+        if (!strcmp(back, "wallping"))
+        {
+            g_ePingMode[iSlot] = PING_TELEPORT;
+            g_iPingTargetIndex[iSlot] = index;
+            PrintChatKey(iSlot, "Chat_UsePing", "Выберите место с помощью пинга (колёсико мышки)");
+            g_pMenus->ClosePlayerMenu(iSlot);
             return;
         }
         if (!strcmp(back, "itemcolor"))
@@ -1578,11 +1944,23 @@ static void OpenItemMenu(int slot, int index)
 
         if (!strcmp(back, "delete"))
         {
+            bool isWallDel = (index >= 0 && index < (int)g_Items.size() && g_Items[index].isWall);
             for (auto it = g_Live.begin(); it != g_Live.end(); )
             {
                 if (it->index == index)
                 {
-                    if (it->ent.Get())
+                    if (isWallDel)
+                    {
+                        for (auto& wc : it->wallColls)
+                        {
+                            if (wc.Get())
+                            {
+                                KillWallCollision(wc.Get());
+                            }
+                        }
+                        it->wallColls.clear();
+                    }
+                    else if (it->ent.Get())
                     {
                         g_pUtils->RemoveEntity((CEntityInstance*)it->ent.Get());
                     }
@@ -1792,7 +2170,7 @@ static void RespawnWallBeams(int index)
         }
         RemoveLiveBeams(le);
         const BPItem& it = g_Items[index];
-        le.beams = DrawWireframe(it.pos, it.pos2, it.beamR, it.beamG, it.beamB, it.beamRainbow);
+        le.beams = DrawWireframe(it.pos, it.pos2, it.beamR, it.beamG, it.beamB, it.beamRainbow, it.wallYaw);
         if (it.beamRainbow)
         {
             StartRainbowTimer();
@@ -2044,6 +2422,71 @@ void BlockerPasses::AllPluginsLoaded()
         }
         g_TempAccessSteamIDs.insert(sid);
         ConColorMsg(Color(0, 255, 0, 255), "[BlockerPasses] Access granted to %llu (until map change)\n", (unsigned long long)sid);
+        return true;
+    });
+
+    g_pUtils->RegCommand(g_PLID, {"mm_bp_walls"}, {}, [](int slot, const char* args) -> bool {
+        if (slot >= 0)
+        {
+            return true;
+        }
+        ConColorMsg(Color(150, 200, 255, 255), "[BlockerPasses] === Wall Debug Info ===\n");
+        ConColorMsg(Color(150, 200, 255, 255), "[BlockerPasses] Items: %d, Live: %d\n", (int)g_Items.size(), (int)g_Live.size());
+
+        int wallCount = 0;
+        for (int i = 0; i < (int)g_Items.size(); ++i)
+        {
+            if (!g_Items[i].isWall)
+            {
+                continue;
+            }
+            wallCount++;
+            const BPItem& it = g_Items[i];
+            ConColorMsg(Color(200, 200, 200, 255),
+                "[BlockerPasses] Wall item[%d] \"%s\" p1(%.1f %.1f %.1f) p2(%.1f %.1f %.1f) yaw=%.1f\n",
+                i, it.label.c_str(), it.pos.x, it.pos.y, it.pos.z, it.pos2.x, it.pos2.y, it.pos2.z, it.wallYaw);
+        }
+
+        int liveWalls = 0;
+        for (auto& le : g_Live)
+        {
+            if (le.index < 0 || le.index >= (int)g_Items.size() || !g_Items[le.index].isWall)
+            {
+                continue;
+            }
+            liveWalls++;
+            CBaseEntity* ent = le.ent.Get();
+            if (ent)
+            {
+                auto* me = dynamic_cast<CBaseModelEntity*>(ent);
+                if (me)
+                {
+                    Vector entPos = ent->m_CBodyComponent()->m_pSceneNode()->m_vecAbsOrigin();
+                    Vector mins = me->m_Collision().m_vecMins();
+                    Vector maxs = me->m_Collision().m_vecMaxs();
+                    int solid = me->m_Collision().m_nSolidType();
+                    ConColorMsg(Color(0, 255, 0, 255),
+                        "[BlockerPasses]   Live[idx=%d] VALID ent pos(%.1f %.1f %.1f) solid=%d mins(%.1f %.1f %.1f) maxs(%.1f %.1f %.1f) beams=%d\n",
+                        le.index, entPos.x, entPos.y, entPos.z, solid,
+                        mins.x, mins.y, mins.z, maxs.x, maxs.y, maxs.z, (int)le.beams.size());
+                    ConColorMsg(Color(0, 255, 0, 255),
+                        "[BlockerPasses]     wallColls=%d\n", (int)le.wallColls.size());
+                }
+                else
+                {
+                    ConColorMsg(Color(255, 255, 0, 255),
+                        "[BlockerPasses]   Live[idx=%d] ent exists but not CBaseModelEntity, beams=%d\n",
+                        le.index, (int)le.beams.size());
+                }
+            }
+            else
+            {
+                ConColorMsg(Color(255, 0, 0, 255),
+                    "[BlockerPasses]   Live[idx=%d] NULL entity handle! beams=%d\n",
+                    le.index, (int)le.beams.size());
+            }
+        }
+        ConColorMsg(Color(150, 200, 255, 255), "[BlockerPasses] Total: %d wall items, %d live walls\n", wallCount, liveWalls);
         return true;
     });
 }
