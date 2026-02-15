@@ -6,7 +6,7 @@
 		"en" "{GREEN}[BlockerPasses]{DEFAULT}"
 	}
 
-	"Chat_NoAccesss"
+	"Chat_NoAccess"
 	{
 		"ru" "{DEFAULT}Нет доступа к {RED}!bp{DEFAULT}."
 		"en" "{DEFAULT}No access to {RED}!bp{DEFAULT}."
@@ -16,6 +16,36 @@
 	{
 		"ru" "Проход закрыт. Откроется при {RED}%d{DEFAULT} игроках."
 		"en" "Passage is closed. It will open at {RED}%d{DEFAULT} players."
+	}
+
+	"Chat_WallPos1"
+	{
+		"ru" "Поставьте первую точку пингом (колёсико мышки)"
+		"en" "Place the first point with a ping (mouse wheel)"
+	}
+
+	"Chat_WallPos2"
+	{
+		"ru" "Теперь поставьте вторую точку пингом (колёсико мышки)"
+		"en" "Now place the second point with a ping (mouse wheel)"
+	}
+
+	"Chat_WallCreated"
+	{
+		"ru" "Стена создана!"
+		"en" "Wall created!"
+	}
+
+	"Chat_MustBeAlive"
+	{
+		"ru" "Для этого вы должны быть живы"
+		"en" "You must be alive for this"
+	}
+
+	"Chat_UsePing"
+	{
+		"ru" "Выберите место с помощью пинга (колёсико мышки)"
+		"en" "Choose a location with a ping (mouse wheel)"
 	}
 
 	"Menu_Title"
@@ -28,6 +58,12 @@
 	{
 		"ru" "Поставить предмет"
 		"en" "Place an item"
+	}
+
+	"Menu_Wall"
+	{
+		"ru" "Создать стену (beam)"
+		"en" "Create wall (beam)"
 	}
 
 	"Menu_Edit"
@@ -60,129 +96,99 @@
 		"en" "No items"
 	}
 
-	"Menu_EditTitle"
+	"Menu_Move"
 	{
-		"ru" "Редактирование: %s"
-		"en" "Editing: %s"
+		"ru" "Двигать"
+		"en" "Move"
 	}
 
-    "Menu_YawP15" 
-    { 
-        "ru" "+ Повернуть 15°" 
-        "en" "+ Yaw 15°" 
-    }
+	"Menu_Rotate"
+	{
+		"ru" "Поворачивать"
+		"en" "Rotate"
+	}
 
-    "Menu_YawP5"
-    {
-        "ru" "+ Повернуть 5°"
-        "en" "+ Yaw 5°"
-    }
+	"Menu_Scale"
+	{
+		"ru" "Масштаб"
+		"en" "Scale"
+	}
 
-    "Menu_YawP1"
-    {
-        "ru" "+ Повернуть 1°"
-        "en" "+ Yaw 1°"
-    }
+	"Menu_Teleport"
+	{
+		"ru" "Телепортироваться"
+		"en" "Teleport"
+	}
 
-    "Menu_YawM1"
-    {
-        "ru" "- Повернуть 1°"
-        "en" "- Yaw 1°"
-    }
+	"Menu_BeamColor"
+	{
+		"ru" "Цвет лазера"
+		"en" "Beam color"
+	}
 
-    "Menu_YawM5"
-    {
-        "ru" "- Повернуть 5°"
-        "en" "- Yaw 5°"
-    }
+	"Menu_BeamColorTitle"
+	{
+		"ru" "Цвет лазера"
+		"en" "Beam color"
+	}
 
-    "Menu_YawM15"
-    {
-        "ru" "- Повернуть 15°"
-        "en" "- Yaw 15°"
-    }
+	"Menu_ItemColor"
+	{
+		"ru" "Цвет предмета"
+		"en" "Item color"
+	}
 
-    "Menu_PitchP5"
-    {
-        "ru" "+ Наклонить 5°"
-        "en" "+ Pitch 5°"
-    }
+	"Menu_ItemColorTitle"
+	{
+		"ru" "Цвет предмета"
+		"en" "Item color"
+	}
 
-    "Menu_PitchM5"
-    {
-        "ru" "- Наклонить 5°"
-        "en" "- Pitch 5°"
-    }
+	"Menu_PingMove"
+	{
+		"ru" "Телепортировать пингом"
+		"en" "Move with ping"
+	}
 
-    "Menu_RollP5"
-    {
-        "ru" "+ Повернуть боком 5°"
-        "en" "+ Roll 5°"
-    }
+	"Menu_MoveTrace"
+	{
+		"ru" "Перенести в точку прицела"
+		"en" "Move to crosshair"
+	}
 
-    "Menu_RollM5"
-    {
-        "ru" "- Повернуть боком 5°"
-        "en" "- Roll 5°"
-    }
+	"Menu_InvisOn"
+	{
+		"ru" "Скрыть"
+		"en" "Hide"
+	}
 
-    "Menu_ScaleP01"
-    {
-        "ru" "+ Размер 0.10x"
-        "en" "+ Size 0.10x"
-    }
+	"Menu_InvisOff"
+	{
+		"ru" "Показать"
+		"en" "Show"
+	}
 
-    "Menu_ScaleM01"
-    {
-        "ru" "- Размер 0.10x"
-        "en" "- Size 0.10x"
-    }
+	"Menu_Delete"
+	{
+		"ru" "Удалить"
+		"en" "Delete"
+	}
 
-    "Menu_ScaleP05"
-    {
-        "ru" "+ Размер 0.50x"
-        "en" "+ Size 0.50x"
-    }
+	"Menu_MoveTitle"
+	{
+		"ru" "Движение"
+		"en" "Movement"
+	}
 
-    "Menu_ScaleM05"
-    {
-        "ru" "- Размер 0.50x"
-        "en" "- Size 0.50x"
-    }
+	"Menu_RotateTitle"
+	{
+		"ru" "Поворот"
+		"en" "Rotation"
+	}
 
-    "Menu_ScaleReset"
-    {
-        "ru" "Сбросить размер (1.0x)"
-        "en" "Reset size (1.0x)"
-    }
-
-    "Menu_MoveTrace"
-    {
-        "ru" "Перенести в точку прицела"
-        "en" "Move to crosshair"
-    }
-
-    "Menu_InvisOn"
-    {
-        "ru" "Скрыть"
-        "en" "Hide"
-    }
-
-    "Menu_InvisOff"
-    {
-        "ru" "Показать"
-        "en" "Show"
-    }
-
-    "Menu_Save"
-    {
-        "ru" "Сохранить"
-        "en" "Save"
-    }
-
-    "Menu_Delete"
-    {
-        "ru" "Удалить"
-        "en" "Delete"
-    }
+	"Menu_ScaleTitle"
+	{
+		"ru" "Масштаб"
+		"en" "Scale"
+	}
 }

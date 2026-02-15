@@ -20,6 +20,7 @@ for sdk_target in MMSPlugin.sdk_targets:
   binary.sources += [
     'BlockerPasses.cpp',
     os.path.join('..', 'SchemaEntity', 'schemasystem.cpp'),
+    os.path.join('..', 'SchemaEntity', 'module.cpp'),
   ]
 
   if cxx.target.arch == 'x86':

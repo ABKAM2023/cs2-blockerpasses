@@ -6,6 +6,7 @@
 #include "utlvector.h"
 #include "ehandle.h"
 #include <iserver.h>
+#include <eiface.h>
 #include <entity2/entitysystem.h>
 #include "igameevents.h"
 #include "vector.h"
