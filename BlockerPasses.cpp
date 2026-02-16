@@ -88,6 +88,9 @@ static bool g_DebugLog = true;
 static bool g_bIgnoreSpectators = true;
 static std::string g_AccessPermission = "@admin/bp";
 static std::string g_AccessFlag = "";
+static std::string g_ChatCommand = "!bp";
+static std::string g_ConCmdBp = "mm_bp";
+static std::string g_ConCmdAccess = "mm_bp_access";
 
 static float g_flRainbowHue = 0.0f;
 static bool  g_bRainbowTimerActive = false;
@@ -995,6 +998,9 @@ static void LoadSettings()
         g_AccessFlag = "";
         g_DebugLog = true;
         g_bIgnoreSpectators = true;
+        g_ChatCommand = "!bp";
+        g_ConCmdBp = "mm_bp";
+        g_ConCmdAccess = "mm_bp_access";
 
         g_ModelDefs.clear();
         g_ModelDefs.push_back({"Желзеные двери", "models/props/de_dust/hr_dust/dust_windows/dust_rollupdoor_96x128_surface_lod.vmdl"});
@@ -1008,6 +1014,9 @@ static void LoadSettings()
     g_AccessFlag = kv->GetString("access_flag", "");
     g_DebugLog = kv->GetInt("debug_log", 1) != 0;
     g_bIgnoreSpectators = kv->GetInt("ignore_spectators", 1) != 0;
+    g_ChatCommand = kv->GetString("chat_command", "!bp");
+    g_ConCmdBp = kv->GetString("console_cmd_bp", "mm_bp");
+    g_ConCmdAccess = kv->GetString("console_cmd_access", "mm_bp_access");
 
     g_ModelDefs.clear();
     if (KeyValues* models = kv->FindKey("models", false))
@@ -1031,8 +1040,9 @@ static void LoadSettings()
         Dbg("No models in settings.ini -> nothing to place");
     }
 
-    Dbg("Settings: min_players_to_open=%d, debug=%d, perm='%s', flag='%s', models=%d",
-        g_MinPlayersToOpen, (int)g_DebugLog, g_AccessPermission.c_str(), g_AccessFlag.c_str(), (int)g_ModelDefs.size());
+    Dbg("Settings: min_players_to_open=%d, debug=%d, perm='%s', flag='%s', chat='%s', concmd='%s', concmd_access='%s', models=%d",
+        g_MinPlayersToOpen, (int)g_DebugLog, g_AccessPermission.c_str(), g_AccessFlag.c_str(),
+        g_ChatCommand.c_str(), g_ConCmdBp.c_str(), g_ConCmdAccess.c_str(), (int)g_ModelDefs.size());
 }
 
 static void OpenModelMenu(int slot);
@@ -2390,9 +2400,9 @@ void BlockerPasses::AllPluginsLoaded()
     g_pUtils->HookEvent(g_PLID, "round_start", OnRoundStartEvent);
     g_pUtils->HookEvent(g_PLID, "player_ping", OnPlayerPingEvent);
 
-    g_pUtils->RegCommand(g_PLID, {"mm_bp"}, {"!bp"}, OnBpCmd);
+    g_pUtils->RegCommand(g_PLID, {g_ConCmdBp.c_str()}, {g_ChatCommand.c_str()}, OnBpCmd);
 
-    g_pUtils->RegCommand(g_PLID, {"mm_bp_access"}, {}, [](int slot, const char* args) -> bool {
+    g_pUtils->RegCommand(g_PLID, {g_ConCmdAccess.c_str()}, {}, [](int slot, const char* args) -> bool {
         if (slot >= 0)
         {
             return true;
@@ -2424,71 +2434,6 @@ void BlockerPasses::AllPluginsLoaded()
         ConColorMsg(Color(0, 255, 0, 255), "[BlockerPasses] Access granted to %llu (until map change)\n", (unsigned long long)sid);
         return true;
     });
-
-    g_pUtils->RegCommand(g_PLID, {"mm_bp_walls"}, {}, [](int slot, const char* args) -> bool {
-        if (slot >= 0)
-        {
-            return true;
-        }
-        ConColorMsg(Color(150, 200, 255, 255), "[BlockerPasses] === Wall Debug Info ===\n");
-        ConColorMsg(Color(150, 200, 255, 255), "[BlockerPasses] Items: %d, Live: %d\n", (int)g_Items.size(), (int)g_Live.size());
-
-        int wallCount = 0;
-        for (int i = 0; i < (int)g_Items.size(); ++i)
-        {
-            if (!g_Items[i].isWall)
-            {
-                continue;
-            }
-            wallCount++;
-            const BPItem& it = g_Items[i];
-            ConColorMsg(Color(200, 200, 200, 255),
-                "[BlockerPasses] Wall item[%d] \"%s\" p1(%.1f %.1f %.1f) p2(%.1f %.1f %.1f) yaw=%.1f\n",
-                i, it.label.c_str(), it.pos.x, it.pos.y, it.pos.z, it.pos2.x, it.pos2.y, it.pos2.z, it.wallYaw);
-        }
-
-        int liveWalls = 0;
-        for (auto& le : g_Live)
-        {
-            if (le.index < 0 || le.index >= (int)g_Items.size() || !g_Items[le.index].isWall)
-            {
-                continue;
-            }
-            liveWalls++;
-            CBaseEntity* ent = le.ent.Get();
-            if (ent)
-            {
-                auto* me = dynamic_cast<CBaseModelEntity*>(ent);
-                if (me)
-                {
-                    Vector entPos = ent->m_CBodyComponent()->m_pSceneNode()->m_vecAbsOrigin();
-                    Vector mins = me->m_Collision().m_vecMins();
-                    Vector maxs = me->m_Collision().m_vecMaxs();
-                    int solid = me->m_Collision().m_nSolidType();
-                    ConColorMsg(Color(0, 255, 0, 255),
-                        "[BlockerPasses]   Live[idx=%d] VALID ent pos(%.1f %.1f %.1f) solid=%d mins(%.1f %.1f %.1f) maxs(%.1f %.1f %.1f) beams=%d\n",
-                        le.index, entPos.x, entPos.y, entPos.z, solid,
-                        mins.x, mins.y, mins.z, maxs.x, maxs.y, maxs.z, (int)le.beams.size());
-                    ConColorMsg(Color(0, 255, 0, 255),
-                        "[BlockerPasses]     wallColls=%d\n", (int)le.wallColls.size());
-                }
-                else
-                {
-                    ConColorMsg(Color(255, 255, 0, 255),
-                        "[BlockerPasses]   Live[idx=%d] ent exists but not CBaseModelEntity, beams=%d\n",
-                        le.index, (int)le.beams.size());
-                }
-            }
-            else
-            {
-                ConColorMsg(Color(255, 0, 0, 255),
-                    "[BlockerPasses]   Live[idx=%d] NULL entity handle! beams=%d\n",
-                    le.index, (int)le.beams.size());
-            }
-        }
-        ConColorMsg(Color(150, 200, 255, 255), "[BlockerPasses] Total: %d wall items, %d live walls\n", wallCount, liveWalls);
-        return true;
-    });
 }
 
 const char* BlockerPasses::GetLicense()
@@ -2498,7 +2443,7 @@ const char* BlockerPasses::GetLicense()
 
 const char* BlockerPasses::GetVersion()
 {
-    return "2.0";
+    return "2.0.1";
 }
 
 const char* BlockerPasses::GetDate()
