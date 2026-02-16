@@ -184,6 +184,19 @@ static inline void PrintChatAllKey(const char* key, const char* fallbackFmt, ...
     }
 }
 
+static bool IsValidMapName(const char* name)
+{
+    if (!name || !*name)
+        return false;
+    for (const char* p = name; *p; ++p)
+    {
+        unsigned char c = (unsigned char)*p;
+        if (c < 0x20 || c > 0x7E)
+            return false;
+    }
+    return true;
+}
+
 static std::string NormalizeMapName(const char* in)
 {
     if (!in || !*in)
@@ -1084,7 +1097,7 @@ static int FindItemByCrosshair(int slot, float maxDist = 128.0f)
     return best;
 }
 
-static void EnsureCorrectMapLoaded()
+static void EnsureCorrectMapLoaded_Internal()
 {
     CGlobalVars* gv = g_pUtils->GetCGlobalVars();
     if (!gv)
@@ -1092,8 +1105,9 @@ static void EnsureCorrectMapLoaded()
         return;
     }
     const char* raw = gv->mapname.ToCStr();
-    if (!raw || !*raw)
+    if (!raw || !*raw || !IsValidMapName(raw))
     {
+        Dbg("EnsureCorrectMapLoaded: invalid/corrupted map name, keeping '%s'", g_CurrentMap.c_str());
         return;
     }
     std::string realMap = NormalizeMapName(raw);
@@ -1112,6 +1126,34 @@ static void EnsureCorrectMapLoaded()
     else
     {
         Dbg("EnsureCorrectMapLoaded: map='%s' (no change)", g_CurrentMap.c_str());
+    }
+}
+
+static void EnsureCorrectMapLoaded(int retries = 3);
+
+static void EnsureCorrectMapLoaded(int retries)
+{
+    CGlobalVars* gv = g_pUtils->GetCGlobalVars();
+    const char* raw = gv ? gv->mapname.ToCStr() : nullptr;
+
+    if (raw && *raw && IsValidMapName(raw))
+    {
+        EnsureCorrectMapLoaded_Internal();
+        return;
+    }
+
+    if (retries > 0)
+    {
+        int left = retries - 1;
+        Dbg("EnsureCorrectMapLoaded: corrupted map name, retrying (%d left)...", left);
+        g_pUtils->CreateTimer(0.25f, [left]() -> float {
+            EnsureCorrectMapLoaded(left);
+            return -1.0f;
+        });
+    }
+    else
+    {
+        Dbg("EnsureCorrectMapLoaded: retries exhausted, keeping current map '%s'", g_CurrentMap.c_str());
     }
 }
 
@@ -1152,6 +1194,8 @@ static bool OnBpCmd(int slot, const char*)
     return true;
 }
 
+static void OnMapStart_Retry(int retries);
+
 static void OnMapStart(const char* map)
 {
     g_TempAccessSteamIDs.clear();
@@ -1164,12 +1208,43 @@ static void OnMapStart(const char* map)
     {
         realMap = gv->mapname.ToCStr();
     }
-    if (!realMap || !*realMap)
+    if (!realMap || !*realMap || !IsValidMapName(realMap))
     {
         realMap = map;
     }
+    if (!realMap || !*realMap || !IsValidMapName(realMap))
+    {
+        Dbg("OnMapStart: no valid map name from either source, scheduling retry...");
+        OnMapStart_Retry(5);
+        return;
+    }
     Dbg("OnMapStart: raw='%s' globals='%s'", map ? map : "(null)", realMap ? realMap : "(null)");
     LoadDataForMap(realMap);
+}
+
+static void OnMapStart_Retry(int retries)
+{
+    if (retries <= 0)
+    {
+        Dbg("OnMapStart_Retry: retries exhausted, keeping current map '%s'", g_CurrentMap.c_str());
+        return;
+    }
+    g_pUtils->CreateTimer(0.3f, [retries]() -> float {
+        CGlobalVars* gv = g_pUtils->GetCGlobalVars();
+        const char* raw = gv ? gv->mapname.ToCStr() : nullptr;
+        if (raw && *raw && IsValidMapName(raw))
+        {
+            std::string realMap = NormalizeMapName(raw);
+            Dbg("OnMapStart_Retry: got valid map '%s'", realMap.c_str());
+            LoadDataForMap(realMap.c_str());
+        }
+        else
+        {
+            Dbg("OnMapStart_Retry: still invalid, %d retries left", retries - 1);
+            OnMapStart_Retry(retries - 1);
+        }
+        return -1.0f;
+    });
 }
 
 static void OnMapEnd()
