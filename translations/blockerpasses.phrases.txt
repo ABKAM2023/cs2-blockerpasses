@@ -191,4 +191,29 @@
 		"ru" "Масштаб"
 		"en" "Scale"
 	}
+
+	"Menu_WallRotate"
+	{
+		"ru" "Поворот стены"
+		"en" "Wall rotation"
+	}
+
+	"Menu_WallRotateTitle"
+	{
+		"ru" "Поворот стены"
+		"en" "Wall rotation"
+	}
+
+	"Menu_WallScale"
+	{
+		"ru" "Размер стены"
+		"en" "Wall size"
+	}
+
+	"Menu_WallScaleTitle"
+	{
+		"ru" "Размер стены"
+		"en" "Wall size"
+	}
 }
+,
